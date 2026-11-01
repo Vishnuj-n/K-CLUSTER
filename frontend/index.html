@@ -1,0 +1,1228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Customer Segmentation Analytics</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            surface: '#F8FAFC',
+            card: '#FFFFFF',
+            sidebar: '#FFFFFF',
+            border: '#E2E8F0',
+            'text-primary': '#1E293B',
+            'text-secondary': '#64748B',
+            accent: '#635BDB',
+            'accent-light': '#EEF2FF',
+            'accent-hover': '#4F46E5',
+          },
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: 'Inter', system-ui, sans-serif; background: #F8FAFC; color: #1E293B; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+
+    /* Range input */
+    input[type=range] { -webkit-appearance: none; appearance: none; height: 6px; border-radius: 4px; background: #E2E8F0; outline: none; cursor: pointer; }
+    input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 16px; height: 16px; border-radius: 50%; background: #635BDB; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(99,91,219,0.4); cursor: pointer; }
+    input[type=range]::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: #635BDB; border: 2px solid #fff; cursor: pointer; }
+
+    /* Checkbox */
+    input[type=checkbox] { accent-color: #635BDB; width: 15px; height: 15px; cursor: pointer; }
+
+    /* Card styling */
+    .card { background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.03); }
+    .card-sm { background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 10px; }
+
+    /* SaaS Dropdown (Design.md specification: Clean, light-themed, #E2E8F0 border, rounded 10px, Inter font, custom SVG chevron) */
+    .saas-select-wrap {
+      position: relative;
+      width: 100%;
+    }
+    .saas-select {
+      appearance: none;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      width: 100%;
+      background-color: #FFFFFF;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748B' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: calc(100% - 12px) center;
+      background-size: 16px 16px;
+      border: 1px solid #E2E8F0;
+      border-radius: 10px;
+      padding: 9px 36px 9px 12px;
+      font-family: 'Inter', system-ui, sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      color: #1E293B;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+      transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+      cursor: pointer;
+      line-height: 1.4;
+      outline: none;
+    }
+    .saas-select:hover {
+      border-color: #CBD5E1;
+      background-color: #FAFAFC;
+    }
+    .saas-select:focus {
+      border-color: #635BDB;
+      box-shadow: 0 0 0 3px rgba(99, 91, 219, 0.15);
+      background-color: #FFFFFF;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23635BDB' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    }
+    .saas-select option {
+      background: #FFFFFF;
+      color: #1E293B;
+      padding: 8px 12px;
+      font-size: 13px;
+    }
+
+    /* Spinner */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner { width: 16px; height: 16px; border: 2px solid #E2E8F0; border-top-color: #635BDB; border-radius: 50%; animation: spin 0.7s linear infinite; display: inline-block; }
+
+    /* Fade in */
+    @keyframes fadeIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+    .fade-in { animation: fadeIn 0.3s ease both; }
+
+    /* Tab */
+    .tab-btn { padding: 9px 16px; font-size: 13px; font-weight: 500; border-bottom: 2px solid transparent; color: #64748B; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+    .tab-btn:hover { color: #1E293B; }
+    .tab-btn.active { border-bottom-color: #635BDB; color: #635BDB; font-weight: 600; }
+
+    /* KPI */
+    .kpi-value { font-size: 24px; font-weight: 700; line-height: 1.2; color: #1E293B; }
+    .kpi-label { font-size: 11px; font-weight: 600; color: #64748B; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+    .kpi-sub { font-size: 11px; color: #94A3B8; margin-top: 2px; }
+
+    /* Table */
+    .data-table th { background: #F8FAFC; font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: #64748B; padding: 10px 14px; position: sticky; top: 0; border-bottom: 1px solid #E2E8F0; }
+    .data-table td { font-size: 12px; padding: 9px 14px; color: #1E293B; border-bottom: 1px solid #F1F5F9; }
+    .data-table tr:hover td { background: #F8FAFC; }
+    .data-table tr:last-child td { border-bottom: none; }
+
+    /* Warn badge */
+    .warn-badge { background: #FEF3C7; color: #92400E; border: 1px solid #FCD34D; border-radius: 8px; font-size: 11px; padding: 5px 10px; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 6px; }
+
+    /* Gender bar */
+    .gender-bar { height: 5px; border-radius: 3px; background: #E2E8F0; overflow: hidden; }
+    .gender-bar-fill { height: 100%; border-radius: 3px; background: #635BDB; }
+
+    /* Centroid toggle */
+    .toggle { position:relative; display:inline-block; width:34px; height:18px; }
+    .toggle input { opacity:0; width:0; height:0; }
+    .toggle-slider { position:absolute; cursor:pointer; top:0;left:0;right:0;bottom:0; background:#E2E8F0; border-radius:18px; transition:0.2s; }
+    .toggle-slider:before { content:""; position:absolute; height:12px; width:12px; left:3px; bottom:3px; background:white; border-radius:50%; transition:0.2s; box-shadow: 0 1px 2px rgba(0,0,0,0.15); }
+    input:checked + .toggle-slider { background:#635BDB; }
+    input:checked + .toggle-slider:before { transform: translateX(16px); }
+
+    /* Elbow table */
+    .elbow-table th { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.04em; color: #64748B; font-weight: 600; padding: 8px 12px; background: #F8FAFC; border-bottom: 1px solid #E2E8F0; }
+    .elbow-table td { font-size: 12px; padding: 8px 12px; border-bottom: 1px solid #F1F5F9; color: #1E293B; }
+
+    /* Cluster size bar */
+    .size-bar { height: 8px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useCallback, useMemo } = React;
+
+    /* ─────────────────────────────────────────
+       Clean Professional SVG Icons (No Emojis)
+    ───────────────────────────────────────── */
+    const Icons = {
+      Users: ({ size = 18, color = 'currentColor' }) => (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+          <circle cx="9" cy="7" r="4" />
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+          <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+        </svg>
+      ),
+      Grid: ({ size = 18, color = 'currentColor' }) => (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="3" width="7" height="7" rx="1.5" />
+          <rect x="14" y="3" width="7" height="7" rx="1.5" />
+          <rect x="14" y="14" width="7" height="7" rx="1.5" />
+          <rect x="3" y="14" width="7" height="7" rx="1.5" />
+        </svg>
+      ),
+      BarChart: ({ size = 18, color = 'currentColor' }) => (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="18" y1="20" x2="18" y2="10" />
+          <line x1="12" y1="20" x2="12" y2="4" />
+          <line x1="6" y1="20" x2="6" y2="14" />
+          <line x1="2" y1="20" x2="22" y2="20" />
+        </svg>
+      ),
+      Activity: ({ size = 18, color = 'currentColor' }) => (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+        </svg>
+      ),
+      Target: ({ size = 14, color = 'currentColor' }) => (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10" />
+          <circle cx="12" cy="12" r="6" />
+          <circle cx="12" cy="12" r="2" />
+        </svg>
+      ),
+      Refresh: ({ size = 13, color = 'currentColor' }) => (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2" />
+        </svg>
+      ),
+      AlertTriangle: ({ size = 13, color = 'currentColor' }) => (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+          <line x1="12" y1="9" x2="12" y2="13" />
+          <line x1="12" y1="17" x2="12.01" y2="17" />
+        </svg>
+      ),
+      Check: ({ size = 13, color = 'currentColor' }) => (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="20 6 9 17 4 12" />
+        </svg>
+      ),
+      TrendingDown: ({ size = 18, color = 'currentColor' }) => (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="23 18 13.5 8.5 8.5 13.5 1 6" />
+          <polyline points="17 18 23 18 23 12" />
+        </svg>
+      ),
+      Ruler: ({ size = 18, color = 'currentColor' }) => (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M21.3 8.7L8.7 21.3c-.4.4-1 .4-1.4 0L2.7 16.7c-.4-.4-.4-1 0-1.4L15.3 2.7c.4-.4 1-.4 1.4 0l4.6 4.6c.4.4.4 1 0 1.4z" />
+          <line x1="14.5" y1="6.5" x2="12.5" y2="8.5" />
+          <line x1="11" y1="10" x2="9" y2="12" />
+          <line x1="7.5" y1="13.5" x2="5.5" y2="15.5" />
+        </svg>
+      ),
+      Scale: ({ size = 18, color = 'currentColor' }) => (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="12" y1="3" x2="12" y2="21" />
+          <polyline points="4 7 12 5 20 7" />
+          <path d="M4 7l-2 7h4l-2-7z" />
+          <path d="M20 7l-2 7h4l-2-7z" />
+        </svg>
+      ),
+      ArrowUp: ({ size = 12 }) => (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="12" y1="19" x2="12" y2="5" />
+          <polyline points="5 12 12 5 19 12" />
+        </svg>
+      ),
+      ArrowDown: ({ size = 12 }) => (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19" />
+          <polyline points="19 12 12 19 5 12" />
+        </svg>
+      ),
+      Diamond: ({ size = 11, color = 'currentColor' }) => (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill={color} stroke={color} strokeWidth="1">
+          <polygon points="12 2 22 12 12 22 2 12" />
+        </svg>
+      )
+    };
+
+    /* ─────────────────────────────────────────
+       Colorblind-friendly categorical palette
+       (Okabe-Ito + extensions)
+    ───────────────────────────────────────── */
+    const PALETTE = [
+      { hex: '#0077BB', rgb: '0,119,187' },
+      { hex: '#EE7733', rgb: '238,119,51' },
+      { hex: '#009988', rgb: '0,153,136' },
+      { hex: '#CC3311', rgb: '204,51,17' },
+      { hex: '#AA3377', rgb: '170,51,119' },
+      { hex: '#33BBEE', rgb: '51,187,238' },
+      { hex: '#EE3377', rgb: '238,51,119' },
+      { hex: '#BBBBBB', rgb: '187,187,187' },
+      { hex: '#332288', rgb: '51,34,136' },
+      { hex: '#117733', rgb: '17,119,51' },
+    ];
+
+    const clrBg   = (i, a=0.75) => `rgba(${PALETTE[i % PALETTE.length].rgb},${a})`;
+    const clrHex  = (i)          => PALETTE[i % PALETTE.length].hex;
+    const clrBdr  = (i)          => `rgb(${PALETTE[i % PALETTE.length].rgb})`;
+
+    /* ─────────────────────────────────────────
+       Utility helpers
+    ───────────────────────────────────────── */
+    const fmt = {
+      income:  v => `$${v}k`,
+      score:   v => `${v}/100`,
+      age:     v => `${v} yrs`,
+      pct:     v => `${v}%`,
+      num:     v => Number(v).toLocaleString(),
+      round2:  v => Math.round(v * 100) / 100,
+    };
+
+    /* Find elbow using largest second-derivative */
+    function findElbow(data) {
+      if (!data || data.length < 3) return null;
+      let maxDelta = -Infinity, elbowK = null;
+      for (let i = 1; i < data.length - 1; i++) {
+        const d2 = data[i-1].inertia - 2*data[i].inertia + data[i+1].inertia;
+        if (d2 > maxDelta) { maxDelta = d2; elbowK = data[i].k; }
+      }
+      return elbowK;
+    }
+
+    /* ─────────────────────────────────────────
+       Shared Components
+    ───────────────────────────────────────── */
+    function Spinner({ size = 16 }) {
+      return <div className="spinner" style={{ width: size, height: size }} />;
+    }
+
+    function Badge({ children, color = '#635BDB', bg = '#EEF2FF' }) {
+      return (
+        <span style={{ background: bg, color, border: `1px solid ${color}22`, borderRadius: 6, fontSize: 11, padding: '2px 8px', fontWeight: 600, display:'inline-block' }}>
+          {children}
+        </span>
+      );
+    }
+
+    /* ─────────────────────────────────────────
+       KPI Card (Clean SVG icon, no emojis)
+    ───────────────────────────────────────── */
+    function KpiCard({ label, value, sub, icon, accent = '#635BDB' }) {
+      return (
+        <div className="card p-4 flex items-start gap-3" style={{ flex: '1 1 160px', minWidth: 0 }}>
+          <div style={{ width: 38, height: 38, borderRadius: 10, background: `${accent}14`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, color: accent }}>
+            {icon}
+          </div>
+          <div style={{ minWidth: 0 }}>
+            <div className="kpi-label">{label}</div>
+            <div className="kpi-value">{value}</div>
+            {sub && <div className="kpi-sub">{sub}</div>}
+          </div>
+        </div>
+      );
+    }
+
+    /* ─────────────────────────────────────────
+       Cluster Profile Card
+    ───────────────────────────────────────── */
+    function ProfileCard({ c, totalCustomers, isHighlighted, onClick }) {
+      const hex = clrHex(c.cluster);
+      const femalePct = c.gender_distribution && c.count > 0
+        ? Math.round(c.gender_distribution.Female / c.count * 100) : 50;
+      const malePct = 100 - femalePct;
+
+      return (
+        <div
+          className="card fade-in"
+          onClick={onClick}
+          style={{
+            cursor: 'pointer',
+            outline: isHighlighted ? `2px solid ${hex}` : '2px solid transparent',
+            outlineOffset: 2,
+            transition: 'outline 0.15s, box-shadow 0.15s',
+            overflow: 'hidden',
+          }}
+        >
+          {/* Color bar */}
+          <div style={{ height: 3, background: hex }} />
+
+          <div style={{ padding: '14px 16px' }}>
+            {/* Header */}
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom: 10 }}>
+              <div>
+                <div style={{ display:'flex', alignItems:'center', gap: 6, marginBottom: 3 }}>
+                  <span style={{ width: 9, height: 9, borderRadius: '50%', background: hex, display:'inline-block', flexShrink:0 }} />
+                  <span style={{ fontSize: 11, fontWeight: 600, color: '#64748B', textTransform:'uppercase', letterSpacing:'0.05em' }}>
+                    Cluster {c.cluster}
+                  </span>
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#1E293B', lineHeight: 1.3 }}>{c.name}</div>
+              </div>
+              <div style={{ textAlign:'right', flexShrink: 0, marginLeft: 8 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#1E293B' }}>{c.count}</div>
+                <div style={{ fontSize: 11, color: '#94A3B8' }}>{c.percentage}% of total</div>
+              </div>
+            </div>
+
+            {/* Stats grid */}
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap: 8, marginBottom: 10 }}>
+              {[
+                { label:'Income', value: fmt.income(c.avg_income) },
+                { label:'Score',  value: fmt.score(c.avg_spending) },
+                { label:'Age',    value: fmt.age(c.avg_age) },
+              ].map(s => (
+                <div key={s.label} style={{ background:'#F8FAFC', borderRadius: 8, padding:'8px 8px 6px', textAlign:'center', border:'1px solid #F1F5F9' }}>
+                  <div style={{ fontSize: 10, color:'#94A3B8', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.04em', marginBottom:2 }}>{s.label}</div>
+                  <div style={{ fontSize: 13, fontWeight:700, color:'#1E293B' }}>{s.value}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Gender breakdown bar */}
+            {c.gender_distribution && (
+              <div style={{ marginBottom: 10 }}>
+                <div style={{ display:'flex', justifyContent:'space-between', fontSize:11, color:'#64748B', marginBottom:4, fontWeight:500 }}>
+                  <span>Female: {c.gender_distribution.Female} ({femalePct}%)</span>
+                  <span>Male: {c.gender_distribution.Male} ({malePct}%)</span>
+                </div>
+                <div className="gender-bar">
+                  <div className="gender-bar-fill" style={{ width:`${femalePct}%`, background: hex }} />
+                </div>
+              </div>
+            )}
+
+            {/* Interpretation */}
+            {c.interpretation && (
+              <div style={{ background:'#F8FAFC', borderRadius: 8, padding:'8px 10px', marginBottom: 8, border:'1px solid #F1F5F9' }}>
+                <div style={{ fontSize: 10, fontWeight:600, color:'#64748B', textTransform:'uppercase', letterSpacing:'0.04em', marginBottom:3 }}>Insight</div>
+                <div style={{ fontSize: 11.5, color:'#475569', lineHeight:1.5 }}>{c.interpretation}</div>
+              </div>
+            )}
+
+            {/* Strategy */}
+            {c.strategy && (
+              <div style={{ display:'flex', gap: 6, alignItems:'flex-start' }}>
+                <span style={{ color: '#635BDB', flexShrink: 0, marginTop: 2 }}>
+                  <Icons.Target size={14} color="#635BDB" />
+                </span>
+                <div style={{ fontSize: 11, color:'#635BDB', fontWeight:500, lineHeight:1.5 }}>{c.strategy}</div>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    /* ─────────────────────────────────────────
+       Main App
+    ───────────────────────────────────────── */
+    function App() {
+      /* State */
+      const [k, setK]                     = useState(5);
+      const [featureX, setFeatureX]       = useState('Annual Income (k$)');
+      const [featureY, setFeatureY]       = useState('Spending Score (1-100)');
+      const [includeAge, setIncludeAge]   = useState(false);
+      const [scaleFeatures, setScale]     = useState(true);
+      const [showCentroids, setShowC]     = useState(true);
+
+      const [meta, setMeta]               = useState(null);
+      const [clusterResult, setResult]    = useState(null);
+      const [elbowData, setElbow]         = useState([]);
+      const [loading, setLoading]         = useState(false);
+      const [elbowLoading, setElbowLoad]  = useState(false);
+      const [activeTab, setTab]           = useState('scatter');
+      const [highlightCluster, setHL]     = useState(null);
+      const [hiddenClusters, setHidden]   = useState(new Set());
+      const [tableSearch, setSearch]      = useState('');
+      const [tableSortCol, setSortCol]    = useState('id');
+      const [tableSortDir, setSortDir]    = useState('asc');
+
+      const scatterRef = useRef(null);
+      const scatterInst = useRef(null);
+      const elbowRef = useRef(null);
+      const elbowInst = useRef(null);
+
+      /* Derived */
+      const recommendedK = useMemo(() => findElbow(elbowData), [elbowData]);
+
+      /* Load meta */
+      useEffect(() => {
+        fetch('/api/meta').then(r => r.json()).then(setMeta).catch(console.error);
+      }, []);
+
+      /* Run clustering */
+      const runClustering = useCallback(() => {
+        setLoading(true);
+        const additional = [];
+        if (includeAge && featureX !== 'Age' && featureY !== 'Age') additional.push('Age');
+        fetch('/api/cluster', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ k: Number(k), feature_x: featureX, feature_y: featureY, additional_features: additional, scale_features: scaleFeatures, random_state: 42 })
+        }).then(r => r.json()).then(d => { setResult(d); setLoading(false); setHL(null); setHidden(new Set()); })
+          .catch(e => { console.error(e); setLoading(false); });
+      }, [k, featureX, featureY, includeAge, scaleFeatures]);
+
+      /* Run elbow */
+      const runElbow = useCallback(() => {
+        setElbowLoad(true);
+        const additional = [];
+        if (includeAge && featureX !== 'Age' && featureY !== 'Age') additional.push('Age');
+        fetch('/api/elbow', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ feature_x: featureX, feature_y: featureY, additional_features: additional, scale_features: scaleFeatures, max_k: 10 })
+        }).then(r => r.json()).then(d => { setElbow(d.elbow_data || []); setElbowLoad(false); })
+          .catch(e => { console.error(e); setElbowLoad(false); });
+      }, [featureX, featureY, includeAge, scaleFeatures]);
+
+      /* Auto-run clustering when params change */
+      useEffect(() => { runClustering(); }, [k, featureX, featureY, includeAge, scaleFeatures]);
+
+      /* Auto-run elbow when params change (if already loaded) */
+      useEffect(() => {
+        if (elbowData.length > 0) runElbow();
+      }, [featureX, featureY, includeAge, scaleFeatures]);
+
+      /* ── Scatter chart ── */
+      useEffect(() => {
+        if (!scatterRef.current || !clusterResult) return;
+        if (scatterInst.current) { scatterInst.current.destroy(); scatterInst.current = null; }
+
+        const datasets = [];
+
+        for (let i = 0; i < clusterResult.k; i++) {
+          const pts = clusterResult.points
+            .filter(pt => pt.cluster === i)
+            .map(pt => ({ x: pt.x, y: pt.y, raw: pt }));
+
+          const isHL = highlightCluster !== null && highlightCluster !== i;
+          const isHidden = hiddenClusters.has(i);
+
+          datasets.push({
+            label: `Cluster ${i}`,
+            data: isHidden ? [] : pts,
+            backgroundColor: isHL ? `rgba(${PALETTE[i%PALETTE.length].rgb},0.15)` : clrBg(i, 0.75),
+            borderColor: isHL ? `rgba(${PALETTE[i%PALETTE.length].rgb},0.3)` : clrBdr(i),
+            borderWidth: 1.5,
+            pointRadius: isHL ? 4 : 5.5,
+            pointHoverRadius: 8,
+            pointStyle: 'circle',
+            pointBorderColor: 'rgba(255,255,255,0.85)',
+            pointBorderWidth: 1.2,
+          });
+        }
+
+        /* Centroids */
+        if (showCentroids && clusterResult.centroids) {
+          datasets.push({
+            label: 'Centroids',
+            data: clusterResult.centroids.map(c => ({ x: c.x, y: c.y, cluster: c.cluster })),
+            backgroundColor: clusterResult.centroids.map(c => clrBg(c.cluster, 1)),
+            borderColor: '#FFFFFF',
+            borderWidth: 2.5,
+            pointRadius: 11,
+            pointHoverRadius: 14,
+            pointStyle: 'rectRot',
+            order: 0,
+          });
+        }
+
+        const ctx = scatterRef.current.getContext('2d');
+        scatterInst.current = new Chart(ctx, {
+          type: 'scatter',
+          data: { datasets },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: { duration: 250 },
+            onClick: (e, elements) => {
+              if (elements.length > 0) {
+                const el = elements[0];
+                const ds = datasets[el.datasetIndex];
+                const pt = ds.data[el.index];
+                if (pt && pt.raw) setHL(prev => prev === pt.raw.cluster ? null : pt.raw.cluster);
+              }
+            },
+            plugins: {
+              legend: {
+                position: 'top',
+                labels: {
+                  color: '#475569',
+                  font: { family: 'Inter', size: 11.5, weight: '500' },
+                  usePointStyle: true,
+                  pointStyleWidth: 10,
+                  boxHeight: 8,
+                  padding: 14,
+                  generateLabels(chart) {
+                    return chart.data.datasets.map((ds, i) => {
+                      const isCentroid = ds.label === 'Centroids';
+                      const clusterIdx = i;
+                      const count = isCentroid ? '' :
+                        ` (${clusterResult.points.filter(p => p.cluster === clusterIdx).length})`;
+                      return {
+                        text: ds.label + count,
+                        fillStyle: isCentroid ? '#635BDB' : clrBg(i, 0.85),
+                        strokeStyle: isCentroid ? '#FFFFFF' : clrBdr(i),
+                        lineWidth: 1.5,
+                        hidden: hiddenClusters.has(i),
+                        datasetIndex: i,
+                        pointStyle: isCentroid ? 'rectRot' : 'circle',
+                      };
+                    });
+                  }
+                },
+                onClick(e, legendItem, legend) {
+                  const idx = legendItem.datasetIndex;
+                  if (idx >= clusterResult.k) return;
+                  setHidden(prev => {
+                    const next = new Set(prev);
+                    if (next.has(idx)) next.delete(idx); else next.add(idx);
+                    return next;
+                  });
+                }
+              },
+              tooltip: {
+                backgroundColor: '#FFFFFF',
+                titleColor: '#1E293B',
+                bodyColor: '#475569',
+                borderColor: '#E2E8F0',
+                borderWidth: 1,
+                padding: 12,
+                cornerRadius: 10,
+                boxPadding: 4,
+                titleFont: { family: 'Inter', size: 12, weight: '600' },
+                bodyFont: { family: 'Inter', size: 11.5 },
+                boxWidth: 8,
+                callbacks: {
+                  label(ctx) {
+                    const raw = ctx.raw;
+                    if (raw.raw) {
+                      const p = raw.raw;
+                      return [
+                        `Customer #${p.id} · Cluster ${p.cluster}`,
+                        `${clusterResult.feature_x}: ${p.x}`,
+                        `${clusterResult.feature_y}: ${p.y}`,
+                        `Age: ${p.Age} · Gender: ${p.Gender}`,
+                      ];
+                    }
+                    return `Centroid C${raw.cluster} (${raw.x.toFixed(1)}, ${raw.y.toFixed(1)})`;
+                  }
+                }
+              }
+            },
+            scales: {
+              x: {
+                title: { display: true, text: clusterResult.feature_x, color: '#64748B', font: { family:'Inter', size:12, weight:'600' } },
+                grid: { color: 'rgba(226,232,240,0.8)' },
+                ticks: { color: '#94A3B8', font: { family:'Inter', size:11 } },
+              },
+              y: {
+                title: { display: true, text: clusterResult.feature_y, color: '#64748B', font: { family:'Inter', size:12, weight:'600' } },
+                grid: { color: 'rgba(226,232,240,0.8)' },
+                ticks: { color: '#94A3B8', font: { family:'Inter', size:11 } },
+              }
+            }
+          }
+        });
+        return () => { if (scatterInst.current) { scatterInst.current.destroy(); scatterInst.current = null; } };
+      }, [clusterResult, highlightCluster, hiddenClusters, showCentroids, activeTab]);
+
+      /* ── Elbow chart ── */
+      useEffect(() => {
+        if (!elbowRef.current || elbowData.length === 0 || activeTab !== 'elbow') return;
+        if (elbowInst.current) { elbowInst.current.destroy(); elbowInst.current = null; }
+
+        const elbowK = findElbow(elbowData);
+
+        const ctx = elbowRef.current.getContext('2d');
+        elbowInst.current = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: elbowData.map(d => `K = ${d.k}`),
+            datasets: [
+              {
+                label: 'Inertia (WCSS)',
+                data: elbowData.map(d => d.inertia),
+                borderColor: '#635BDB',
+                backgroundColor: 'rgba(99,91,219,0.08)',
+                yAxisID: 'y',
+                tension: 0.3,
+                pointRadius: elbowData.map(d => d.k === elbowK ? 9 : 5),
+                pointBackgroundColor: elbowData.map(d => d.k === elbowK ? '#635BDB' : '#818CF8'),
+                pointBorderColor: elbowData.map(d => d.k === elbowK ? '#fff' : '#635BDB'),
+                pointBorderWidth: elbowData.map(d => d.k === elbowK ? 3 : 1.5),
+                borderWidth: 2.5,
+                fill: true,
+              },
+              {
+                label: 'Silhouette Score',
+                data: elbowData.map(d => d.silhouette),
+                borderColor: '#0077BB',
+                backgroundColor: 'transparent',
+                yAxisID: 'y1',
+                tension: 0.3,
+                pointRadius: 5,
+                pointBackgroundColor: '#33BBEE',
+                pointBorderColor: '#0077BB',
+                pointBorderWidth: 1.5,
+                borderWidth: 2,
+                borderDash: [6, 4],
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { labels: { color: '#475569', font: { family:'Inter', size:12 }, usePointStyle:true, padding:16 } },
+              tooltip: {
+                backgroundColor: '#fff', titleColor: '#1E293B', bodyColor: '#475569',
+                borderColor: '#E2E8F0', borderWidth:1, padding:12, cornerRadius:10,
+                titleFont: { family:'Inter', size:12, weight:'600' },
+                bodyFont: { family:'Inter', size:11.5 },
+              }
+            },
+            scales: {
+              x: { grid: { color:'rgba(226,232,240,0.8)' }, ticks: { color:'#94A3B8', font:{family:'Inter',size:12} } },
+              y: {
+                type:'linear', position:'left',
+                title: { display:true, text:'Inertia (WCSS)', color:'#635BDB', font:{family:'Inter',size:11.5,weight:'600'} },
+                grid: { color:'rgba(226,232,240,0.8)' }, ticks: { color:'#635BDB', font:{family:'Inter',size:11} }
+              },
+              y1: {
+                type:'linear', position:'right',
+                title: { display:true, text:'Silhouette Score', color:'#0077BB', font:{family:'Inter',size:11.5,weight:'600'} },
+                grid: { drawOnChartArea:false }, ticks: { color:'#0077BB', font:{family:'Inter',size:11} },
+                min:0, max:1
+              }
+            }
+          }
+        });
+        return () => { if (elbowInst.current) { elbowInst.current.destroy(); elbowInst.current = null; } };
+      }, [elbowData, activeTab]);
+
+      /* ── Table logic ── */
+      const filteredPoints = useMemo(() => {
+        if (!clusterResult) return [];
+        let pts = [...clusterResult.points];
+        if (tableSearch.trim()) {
+          const q = tableSearch.toLowerCase();
+          pts = pts.filter(p =>
+            String(p.id).includes(q) ||
+            p.Gender.toLowerCase().includes(q) ||
+            String(p.cluster).includes(q)
+          );
+        }
+        pts.sort((a, b) => {
+          let va = a[tableSortCol], vb = b[tableSortCol];
+          if (typeof va === 'string') va = va.toLowerCase(), vb = vb.toLowerCase();
+          return tableSortDir === 'asc' ? (va > vb ? 1 : -1) : (va < vb ? 1 : -1);
+        });
+        return pts;
+      }, [clusterResult, tableSearch, tableSortCol, tableSortDir]);
+
+      const toggleSort = col => {
+        if (tableSortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+        else { setSortCol(col); setSortDir('asc'); }
+      };
+
+      /* ─────────────────────────────────────
+         RENDER
+      ───────────────────────────────────── */
+      return (
+        <div style={{ minHeight:'100vh', background:'#F8FAFC', display:'flex', flexDirection:'column' }}>
+
+          {/* ── Header ── */}
+          <header style={{ background:'#FFFFFF', borderBottom:'1px solid #E2E8F0', padding:'0 24px', height: 60, display:'flex', alignItems:'center', justifyContent:'space-between', position:'sticky', top:0, zIndex:50 }}>
+            <div style={{ display:'flex', alignItems:'center', gap: 12 }}>
+              <div style={{ width:34, height:34, borderRadius:10, background:'#635BDB', display:'flex', alignItems:'center', justifyContent:'center', color:'#FFFFFF', fontSize:15, fontWeight:800, flexShrink:0, letterSpacing:'-0.5px' }}>
+                K
+              </div>
+              <div>
+                <div style={{ fontSize:15, fontWeight:700, color:'#1E293B', lineHeight:1.2 }}>Customer Segmentation Analytics</div>
+                <div style={{ fontSize:11, color:'#94A3B8' }}>K-Means · FastAPI · React · Chart.js</div>
+              </div>
+            </div>
+            <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+              <div style={{ display:'flex', alignItems:'center', gap:6, background:'#F0FDF4', border:'1px solid #BBF7D0', borderRadius:20, padding:'4px 12px' }}>
+                <span style={{ width:7, height:7, borderRadius:'50%', background:'#22C55E', display:'inline-block' }} />
+                <span style={{ fontSize:11.5, color:'#166534', fontWeight:500 }}>FastAPI Active · Port 8000</span>
+              </div>
+              <div style={{ background:'#F8FAFC', border:'1px solid #E2E8F0', borderRadius:20, padding:'4px 12px', fontSize:11.5, color:'#64748B', fontWeight:500 }}>
+                Mall_Customers.csv · {meta ? meta.total_records : '…'} records
+              </div>
+            </div>
+          </header>
+
+          {/* ── Body ── */}
+          <div style={{ display:'flex', flex:1, maxWidth:'100%', overflow:'hidden' }}>
+
+            {/* ── Sidebar (Clean White with #E2E8F0 borders) ── */}
+            <aside style={{ width:270, flexShrink:0, background:'#FFFFFF', borderRight:'1px solid #E2E8F0', padding:'20px 16px', overflowY:'auto', display:'flex', flexDirection:'column', gap:20 }}>
+
+              {/* Hyperparameters */}
+              <section>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
+                  <span style={{ fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', color:'#64748B' }}>Hyperparameters</span>
+                  <Badge>Live</Badge>
+                </div>
+
+                {/* K slider */}
+                <div style={{ marginBottom:18 }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6 }}>
+                    <label style={{ fontSize:12, fontWeight:600, color:'#1E293B' }}>Clusters (K)</label>
+                    <span style={{ background:'#635BDB', color:'#fff', fontSize:12, fontWeight:700, borderRadius:6, padding:'1px 9px' }}>{k}</span>
+                  </div>
+                  <input type="range" min="2" max="10" value={k} onChange={e => setK(Number(e.target.value))} style={{ width:'100%' }} />
+                  <div style={{ display:'flex', justifyContent:'space-between', fontSize:10.5, color:'#94A3B8', marginTop:5 }}>
+                    <span>2</span>
+                    {recommendedK && (
+                      <span style={{ color: k === recommendedK ? '#16A34A' : '#D97706', fontWeight:600, display:'inline-flex', alignItems:'center', gap:3 }}>
+                        {k === recommendedK ? <Icons.Check size={11} color="#16A34A" /> : <Icons.AlertTriangle size={11} color="#D97706" />}
+                        Recommended: {recommendedK}
+                      </span>
+                    )}
+                    <span>10</span>
+                  </div>
+                  {recommendedK && k !== recommendedK && (
+                    <div className="warn-badge" style={{ marginTop:10 }}>
+                      <Icons.AlertTriangle size={13} color="#92400E" />
+                      <span>K differs from elbow recommendation ({recommendedK})</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Feature X Dropdown (Styled strictly per design.md) */}
+                <div style={{ marginBottom:14 }}>
+                  <label style={{ fontSize:12, fontWeight:600, color:'#1E293B', display:'block', marginBottom:6 }}>
+                    X-Axis Feature
+                  </label>
+                  <div className="saas-select-wrap">
+                    <select
+                      className="saas-select"
+                      value={featureX}
+                      onChange={e => setFeatureX(e.target.value)}
+                    >
+                      <option value="Annual Income (k$)">Annual Income (k$)</option>
+                      <option value="Spending Score (1-100)">Spending Score (1-100)</option>
+                      <option value="Age">Age</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Feature Y Dropdown (Styled strictly per design.md) */}
+                <div style={{ marginBottom:16 }}>
+                  <label style={{ fontSize:12, fontWeight:600, color:'#1E293B', display:'block', marginBottom:6 }}>
+                    Y-Axis Feature
+                  </label>
+                  <div className="saas-select-wrap">
+                    <select
+                      className="saas-select"
+                      value={featureY}
+                      onChange={e => setFeatureY(e.target.value)}
+                    >
+                      <option value="Spending Score (1-100)">Spending Score (1-100)</option>
+                      <option value="Annual Income (k$)">Annual Income (k$)</option>
+                      <option value="Age">Age</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Checkboxes */}
+                <div style={{ borderTop:'1px solid #F1F5F9', paddingTop:14, display:'flex', flexDirection:'column', gap:10, marginBottom:16 }}>
+                  {[
+                    { label:'Include Age in clustering', value:includeAge, set:setIncludeAge, sub:'Adds 3rd dimension to distance' },
+                    { label:'Standardize features', value:scaleFeatures, set:setScale, sub:'Zero-mean normalization' },
+                  ].map(item => (
+                    <label key={item.label} style={{ display:'flex', gap:8, cursor:'pointer', alignItems:'flex-start' }}>
+                      <input type="checkbox" checked={item.value} onChange={e => item.set(e.target.checked)} style={{ marginTop:2, flexShrink:0 }} />
+                      <div>
+                        <div style={{ fontSize:12, fontWeight:500, color:'#1E293B' }}>{item.label}</div>
+                        {item.sub && <div style={{ fontSize:10.5, color:'#94A3B8' }}>{item.sub}</div>}
+                      </div>
+                    </label>
+                  ))}
+                </div>
+
+                {/* Re-run button with clean SVG */}
+                <button
+                  onClick={runClustering}
+                  disabled={loading}
+                  style={{ width:'100%', background: loading ? '#A5B4FC' : '#635BDB', color:'#fff', border:'none', borderRadius:10, padding:'9px 0', fontSize:13, fontWeight:600, cursor: loading ? 'not-allowed' : 'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:8, transition:'background 0.15s, box-shadow 0.15s', boxShadow: '0 1px 2px rgba(99,91,219,0.2)' }}
+                  onMouseOver={e => { if (!loading) e.currentTarget.style.background='#4F46E5'; }}
+                  onMouseOut={e => { if (!loading) e.currentTarget.style.background='#635BDB'; }}
+                >
+                  {loading ? (
+                    <><Spinner size={14}/> <span>Running…</span></>
+                  ) : (
+                    <><Icons.Refresh size={14} color="#FFFFFF" /> <span>Re-run K-Means</span></>
+                  )}
+                </button>
+              </section>
+
+              {/* Visualization options */}
+              <section style={{ borderTop:'1px solid #F1F5F9', paddingTop:18 }}>
+                <div style={{ fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', color:'#64748B', marginBottom:12 }}>Chart Options</div>
+                <label style={{ display:'flex', justifyContent:'space-between', alignItems:'center', cursor:'pointer' }}>
+                  <div>
+                    <div style={{ fontSize:12, fontWeight:500, color:'#1E293B' }}>Show Centroids</div>
+                    <div style={{ fontSize:10.5, color:'#94A3B8', display:'flex', alignItems:'center', gap:4 }}>
+                      <Icons.Diamond size={9} color="#64748B" /> Diamond markers
+                    </div>
+                  </div>
+                  <label className="toggle">
+                    <input type="checkbox" checked={showCentroids} onChange={e => setShowC(e.target.checked)} />
+                    <span className="toggle-slider" />
+                  </label>
+                </label>
+                {highlightCluster !== null && (
+                  <button onClick={() => setHL(null)} style={{ marginTop:10, width:'100%', background:'#F8FAFC', border:'1px solid #E2E8F0', borderRadius:8, padding:'6px 0', fontSize:11.5, color:'#64748B', cursor:'pointer', fontWeight:500 }}>
+                    Clear Highlight
+                  </button>
+                )}
+              </section>
+
+              {/* Metrics */}
+              {clusterResult && (
+                <section style={{ borderTop:'1px solid #F1F5F9', paddingTop:18 }}>
+                  <div style={{ fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', color:'#64748B', marginBottom:12 }}>Evaluation Metrics</div>
+                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+                    {[
+                      { label:'Silhouette', value: clusterResult.silhouette_score, color:'#0077BB', bg:'#EFF8FF', sub: clusterResult.silhouette_score > 0.5 ? 'Well-separated' : clusterResult.silhouette_score > 0.25 ? 'Moderate' : 'Weak' },
+                      { label:'Inertia', value: Math.round(clusterResult.inertia).toLocaleString(), color:'#635BDB', bg:'#EEF2FF', sub:'WCSS' },
+                    ].map(m => (
+                      <div key={m.label} style={{ background:m.bg, border:`1px solid ${m.color}22`, borderRadius:10, padding:'10px 10px 8px' }}>
+                        <div style={{ fontSize:10, fontWeight:600, textTransform:'uppercase', letterSpacing:'0.04em', color:m.color, marginBottom:4 }}>{m.label}</div>
+                        <div style={{ fontSize:17, fontWeight:800, color:m.color, lineHeight:1.1 }}>{m.value}</div>
+                        <div style={{ fontSize:10, color:`${m.color}aa`, marginTop:3 }}>{m.sub}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Cluster size comparison */}
+                  {clusterResult.cluster_summaries && (
+                    <div style={{ marginTop:14 }}>
+                      <div style={{ fontSize:10.5, fontWeight:600, color:'#64748B', marginBottom:8 }}>Cluster Sizes</div>
+                      <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
+                        {clusterResult.cluster_summaries.map(c => (
+                          <div key={c.cluster} style={{ display:'flex', alignItems:'center', gap:7 }}>
+                            <span style={{ width:8, height:8, borderRadius:'50%', background:clrHex(c.cluster), flexShrink:0 }} />
+                            <div style={{ flex:1, background:'#F1F5F9', borderRadius:4, height:7, overflow:'hidden' }}>
+                              <div className="size-bar" style={{ width:`${c.percentage}%`, background:clrHex(c.cluster) }} />
+                            </div>
+                            <span style={{ fontSize:10, color:'#64748B', minWidth:28, textAlign:'right' }}>{c.count}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </section>
+              )}
+            </aside>
+
+            {/* ── Main content ── */}
+            <main style={{ flex:1, overflowY:'auto', padding:24, display:'flex', flexDirection:'column', gap:20, minWidth:0 }}>
+
+              {/* KPI Cards (Clean SVGs, no emojis) */}
+              {clusterResult && (
+                <div style={{ display:'flex', gap:12, flexWrap:'wrap' }}>
+                  <KpiCard
+                    label="Total Customers"
+                    value={fmt.num(clusterResult.points.length)}
+                    sub="Mall dataset"
+                    icon={<Icons.Users size={19} color="#635BDB" />}
+                    accent="#635BDB"
+                  />
+                  <KpiCard
+                    label="Clusters (K)"
+                    value={k}
+                    sub={recommendedK ? `Recommended: ${recommendedK}` : 'Run elbow for recommendation'}
+                    icon={<Icons.Grid size={18} color="#0077BB" />}
+                    accent="#0077BB"
+                  />
+                  <KpiCard
+                    label="Silhouette Score"
+                    value={clusterResult.silhouette_score}
+                    sub={clusterResult.silhouette_score > 0.5 ? 'Strong separation' : clusterResult.silhouette_score > 0.25 ? 'Moderate separation' : 'Weak separation'}
+                    icon={<Icons.BarChart size={18} color="#009988" />}
+                    accent="#009988"
+                  />
+                  <KpiCard
+                    label="Inertia (WCSS)"
+                    value={Math.round(clusterResult.inertia).toLocaleString()}
+                    sub="Within-cluster sum of squares"
+                    icon={<Icons.Activity size={18} color="#EE7733" />}
+                    accent="#EE7733"
+                  />
+                </div>
+              )}
+
+              {/* Tabs */}
+              <div style={{ borderBottom:'1px solid #E2E8F0', display:'flex', gap:4 }}>
+                {[
+                  { id:'scatter', label:'Cluster Visualization' },
+                  { id:'profiles', label:`Segment Profiles${clusterResult ? ` (${clusterResult.k})` : ''}` },
+                  { id:'elbow', label:'Elbow Analysis' },
+                  { id:'table', label:`Customer Data${clusterResult ? ` (${clusterResult.points.length})` : ''}` },
+                ].map(t => (
+                  <button
+                    key={t.id}
+                    className={`tab-btn${activeTab===t.id?' active':''}`}
+                    onClick={() => {
+                      setTab(t.id);
+                      if (t.id === 'elbow' && elbowData.length === 0) runElbow();
+                    }}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* ── Tab: Scatter ── */}
+              {activeTab === 'scatter' && (
+                <div className="card fade-in" style={{ padding:20 }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:16, gap:12 }}>
+                    <div>
+                      <div style={{ fontSize:15, fontWeight:700, color:'#1E293B', marginBottom:2 }}>Interactive Cluster Map</div>
+                      <div style={{ fontSize:12, color:'#64748B' }}>Click a legend item to toggle visibility · Click a data point to highlight its cluster · Scroll to zoom · Drag to pan</div>
+                    </div>
+                    <div style={{ display:'flex', gap:8, flexShrink:0 }}>
+                      {loading && <Spinner />}
+                      <span style={{ background:'#F8FAFC', border:'1px solid #E2E8F0', borderRadius:20, padding:'4px 12px', fontSize:11.5, color:'#64748B', fontWeight:500 }}>
+                        {clusterResult?.points?.length || 0} pts · {k} clusters · {showCentroids ? 'Centroids visible' : 'Centroids hidden'}
+                      </span>
+                    </div>
+                  </div>
+                  <div style={{ height:460, width:'100%' }}>
+                    {loading && !clusterResult ? (
+                      <div style={{ height:'100%', display:'flex', alignItems:'center', justifyContent:'center', gap:10, color:'#94A3B8' }}>
+                        <Spinner size={24}/> <span>Running K-Means…</span>
+                      </div>
+                    ) : (
+                      <canvas ref={scatterRef} />
+                    )}
+                  </div>
+                  {highlightCluster !== null && clusterResult && (
+                    <div className="fade-in" style={{ marginTop:14, background:'#EEF2FF', border:'1px solid #C7D2FE', borderRadius:10, padding:'10px 14px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                      <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                        <span style={{ width:12, height:12, borderRadius:'50%', background:clrHex(highlightCluster), display:'inline-block' }} />
+                        <span style={{ fontSize:13, fontWeight:600, color:'#1E293B' }}>
+                          Cluster {highlightCluster} highlighted
+                        </span>
+                        <span style={{ fontSize:12, color:'#64748B' }}>
+                          · {clusterResult.cluster_summaries[highlightCluster]?.name}
+                          · {clusterResult.cluster_summaries[highlightCluster]?.count} customers
+                        </span>
+                      </div>
+                      <button onClick={() => setHL(null)} style={{ background:'none', border:'1px solid #C7D2FE', borderRadius:6, padding:'3px 10px', fontSize:11.5, color:'#635BDB', cursor:'pointer', fontWeight:500 }}>
+                        Dismiss
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ── Tab: Profiles ── */}
+              {activeTab === 'profiles' && (
+                <div className="fade-in">
+                  {!clusterResult ? (
+                    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:10, padding:60, color:'#94A3B8' }}><Spinner size={24}/> Loading…</div>
+                  ) : (
+                    <>
+                      <div style={{ marginBottom:16, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                        <div style={{ fontSize:13, color:'#64748B' }}>
+                          {clusterResult.k} customer segments derived from K-Means clustering on <strong style={{ color:'#1E293B' }}>{clusterResult.feature_x}</strong> and <strong style={{ color:'#1E293B' }}>{clusterResult.feature_y}</strong>.
+                          {includeAge && <span> Age included as clustering dimension.</span>}
+                        </div>
+                      </div>
+                      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(300px, 1fr))', gap:14 }}>
+                        {clusterResult.cluster_summaries.map(c => (
+                          <ProfileCard
+                            key={c.cluster}
+                            c={c}
+                            totalCustomers={clusterResult.points.length}
+                            isHighlighted={highlightCluster === c.cluster}
+                            onClick={() => setHL(prev => prev === c.cluster ? null : c.cluster)}
+                          />
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* ── Tab: Elbow ── */}
+              {activeTab === 'elbow' && (
+                <div className="fade-in" style={{ display:'flex', flexDirection:'column', gap:16 }}>
+                  <div className="card" style={{ padding:20 }}>
+                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:16 }}>
+                      <div>
+                        <div style={{ fontSize:15, fontWeight:700, color:'#1E293B', marginBottom:2 }}>Elbow Method & Silhouette Analysis</div>
+                        <div style={{ fontSize:12, color:'#64748B' }}>Evaluating optimal K from 1–10 using within-cluster sum of squares and silhouette scores.</div>
+                      </div>
+                      <button
+                        onClick={runElbow}
+                        disabled={elbowLoading}
+                        style={{ background:elbowLoading?'#A5B4FC':'#635BDB', color:'#fff', border:'none', borderRadius:8, padding:'7px 16px', fontSize:12, fontWeight:600, cursor:elbowLoading?'not-allowed':'pointer', display:'flex', alignItems:'center', gap:6 }}
+                      >
+                        {elbowLoading ? <><Spinner size={13}/> Computing…</> : <><Icons.Refresh size={13} color="#fff" /> Recalculate</>}
+                      </button>
+                    </div>
+                    <div style={{ height:380, width:'100%' }}>
+                      {elbowLoading && elbowData.length === 0 ? (
+                        <div style={{ height:'100%', display:'flex', alignItems:'center', justifyContent:'center', gap:10, color:'#94A3B8' }}>
+                          <Spinner size={24}/> <span>Computing elbow…</span>
+                        </div>
+                      ) : elbowData.length === 0 ? (
+                        <div style={{ height:'100%', display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:10, color:'#94A3B8' }}>
+                          <Icons.TrendingDown size={36} color="#CBD5E1" />
+                          <span style={{ fontSize:13, fontWeight:500 }}>Click Recalculate to run elbow analysis</span>
+                        </div>
+                      ) : (
+                        <canvas ref={elbowRef} />
+                      )}
+                    </div>
+                  </div>
+
+                  {elbowData.length > 0 && (
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
+                      {/* Elbow data table */}
+                      <div className="card" style={{ overflow:'hidden' }}>
+                        <div style={{ padding:'12px 16px', borderBottom:'1px solid #F1F5F9', fontSize:13, fontWeight:600, color:'#1E293B' }}>K vs Metrics</div>
+                        <div style={{ overflowX:'auto' }}>
+                          <table className="elbow-table" style={{ width:'100%', borderCollapse:'collapse' }}>
+                            <thead>
+                              <tr>
+                                <th>K</th>
+                                <th>Inertia</th>
+                                <th>Silhouette</th>
+                                <th>Status</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {elbowData.map(d => (
+                                <tr key={d.k} style={{ background: d.k === recommendedK ? '#EEF2FF' : undefined }}>
+                                  <td style={{ fontWeight: d.k === recommendedK ? 700 : 500, color: d.k === recommendedK ? '#635BDB' : '#1E293B' }}>
+                                    <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                                      <span>K = {d.k}</span>
+                                      {d.k === recommendedK && (
+                                        <span style={{ background:'#635BDB', color:'#FFFFFF', borderRadius:4, fontSize:9.5, padding:'1px 5px', fontWeight:600, letterSpacing:'0.03em' }}>
+                                          RECOMMENDED
+                                        </span>
+                                      )}
+                                    </div>
+                                  </td>
+                                  <td>{Math.round(d.inertia).toLocaleString()}</td>
+                                  <td>{d.silhouette ? d.silhouette.toFixed(4) : '—'}</td>
+                                  <td>
+                                    {d.k === k && <span style={{ background:'#635BDB', color:'#fff', borderRadius:4, fontSize:10, padding:'1px 6px', fontWeight:600 }}>Selected</span>}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+
+                      {/* Interpretation */}
+                      <div className="card" style={{ padding:18, display:'flex', flexDirection:'column', gap:12 }}>
+                        <div style={{ fontSize:13, fontWeight:600, color:'#1E293B' }}>Interpretation Guide</div>
+                        {[
+                          { icon:<Icons.TrendingDown size={18} color="#635BDB" />, title:'Elbow Point', body:`The point of diminishing returns where adding another cluster does not significantly decrease WCSS. ${recommendedK ? `Detected at K = ${recommendedK}.` : ''}` },
+                          { icon:<Icons.Ruler size={18} color="#0077BB" />, title:'Silhouette Score', body:'Measures cohesion vs separation. Score > 0.5 indicates well-separated clusters. Peaks validate strong cluster structure.' },
+                          { icon:<Icons.Scale size={18} color="#EE7733" />, title:'Trade-off', body:'More clusters reduce inertia but increase complexity. Balance cluster quality with interpretability.' },
+                        ].map(i => (
+                          <div key={i.title} style={{ display:'flex', gap:12, padding:'11px 12px', background:'#F8FAFC', borderRadius:8, border:'1px solid #F1F5F9' }}>
+                            <div style={{ flexShrink:0, marginTop:1 }}>{i.icon}</div>
+                            <div>
+                              <div style={{ fontSize:12, fontWeight:600, color:'#1E293B', marginBottom:2 }}>{i.title}</div>
+                              <div style={{ fontSize:11.5, color:'#64748B', lineHeight:1.5 }}>{i.body}</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ── Tab: Table ── */}
+              {activeTab === 'table' && (
+                <div className="card fade-in" style={{ overflow:'hidden' }}>
+                  <div style={{ padding:'14px 16px', borderBottom:'1px solid #F1F5F9', display:'flex', justifyContent:'space-between', alignItems:'center', gap:12, flexWrap:'wrap' }}>
+                    <div>
+                      <div style={{ fontSize:14, fontWeight:700, color:'#1E293B' }}>Customer Records with Cluster Labels</div>
+                      <div style={{ fontSize:12, color:'#64748B' }}>{filteredPoints.length} customers{tableSearch ? ` matching "${tableSearch}"` : ''}</div>
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="Search by ID, gender or cluster…"
+                      value={tableSearch}
+                      onChange={e => setSearch(e.target.value)}
+                      style={{ background:'#FFFFFF', border:'1px solid #E2E8F0', borderRadius:8, padding:'7px 12px', fontSize:12, color:'#1E293B', outline:'none', minWidth:220, fontFamily:'Inter,sans-serif' }}
+                    />
+                  </div>
+                  <div style={{ overflowX:'auto', maxHeight:520 }}>
+                    <table className="data-table" style={{ width:'100%', borderCollapse:'collapse' }}>
+                      <thead>
+                        <tr>
+                          {[
+                            { key:'id', label:'Customer ID' },
+                            { key:'Gender', label:'Gender' },
+                            { key:'Age', label:'Age' },
+                            { key:'Annual Income (k$)', label:'Annual Income' },
+                            { key:'Spending Score (1-100)', label:'Spending Score' },
+                            { key:'cluster', label:'Cluster' },
+                          ].map(col => (
+                            <th key={col.key} onClick={() => toggleSort(col.key)} style={{ cursor:'pointer', userSelect:'none' }}>
+                              <span style={{ display:'flex', alignItems:'center', gap:4 }}>
+                                {col.label}
+                                {tableSortCol === col.key && (tableSortDir === 'asc' ? <Icons.ArrowUp size={11} /> : <Icons.ArrowDown size={11} />)}
+                              </span>
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredPoints.map(pt => {
+                          const hex = clrHex(pt.cluster);
+                          const segName = clusterResult?.cluster_summaries?.[pt.cluster]?.name || '';
+                          return (
+                            <tr key={pt.id}>
+                              <td style={{ fontWeight:600 }}>#{pt.id}</td>
+                              <td>{pt.Gender}</td>
+                              <td>{pt.Age}</td>
+                              <td>${pt['Annual Income (k$)']}k</td>
+                              <td>{pt['Spending Score (1-100)']}/100</td>
+                              <td>
+                                <span style={{ display:'inline-flex', alignItems:'center', gap:5, background:`${hex}18`, border:`1px solid ${hex}44`, borderRadius:6, padding:'2px 9px', fontSize:11.5, fontWeight:600, color: hex }}>
+                                  <span style={{ width:7, height:7, borderRadius:'50%', background:hex, display:'inline-block' }} />
+                                  Cluster {pt.cluster}
+                                </span>
+                                {segName && <span style={{ fontSize:10.5, color:'#64748B', marginLeft:6 }}>{segName}</span>}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+            </main>
+          </div>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
