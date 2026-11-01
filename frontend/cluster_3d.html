@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mall Customer Segmentation - 3D Interactive Space</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Plotly.js for high-performance 3D WebGL scatter plots -->
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #0B1120;
+      color: #E2E8F0;
+    }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+    .glass-card {
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(51, 65, 85, 0.6);
+    }
+    input[type=range] {
+      -webkit-appearance: none;
+      appearance: none;
+      height: 6px;
+      border-radius: 4px;
+      background: #334155;
+      outline: none;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #6366F1;
+      border: 2px solid #FFFFFF;
+      box-shadow: 0 0 10px rgba(99, 102, 241, 0.5);
+      cursor: pointer;
+    }
+    .saas-select {
+      background-color: #1E293B;
+      border: 1px solid #334155;
+      color: #F8FAFC;
+      border-radius: 8px;
+      padding: 6px 12px;
+      outline: none;
+    }
+    .saas-select:focus {
+      border-color: #6366F1;
+      box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.25);
+    }
+    .badge-btn {
+      transition: all 0.15s ease;
+    }
+    .badge-btn:hover {
+      transform: translateY(-1px);
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- Header -->
+  <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-50 px-6 py-3.5 flex items-center justify-between">
+    <div class="flex items-center space-x-3">
+      <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20 text-white font-bold text-lg">
+        3D
+      </div>
+      <div>
+        <div class="flex items-center space-x-2">
+          <h1 class="text-base font-semibold text-white tracking-tight">Customer Segmentation 3D Space</h1>
+          <span class="px-2 py-0.5 text-xs font-medium rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">WebGL</span>
+        </div>
+        <p class="text-xs text-slate-400">Interactive 3-Dimensional K-Means Clustering Explorer</p>
+      </div>
+    </div>
+
+    <div class="flex items-center space-x-3">
+      <a href="/" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition">
+        <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+        <span>Back to 2D Dashboard</span>
+      </a>
+    </div>
+  </header>
+
+  <!-- Main Layout -->
+  <div class="flex-1 flex flex-col lg:flex-row overflow-hidden">
+    
+    <!-- Left Sidebar: Controls -->
+    <aside class="w-full lg:w-80 border-r border-slate-800 bg-slate-900/50 p-5 flex flex-col space-y-6 overflow-y-auto">
+      
+      <!-- Cluster count (k) -->
+      <div class="space-y-2">
+        <div class="flex justify-between items-center text-xs font-medium text-slate-300">
+          <span>Clusters (k)</span>
+          <span id="kDisplay" class="px-2 py-0.5 rounded bg-indigo-950 text-indigo-300 border border-indigo-800 mono font-semibold">5</span>
+        </div>
+        <input id="kRange" type="range" min="2" max="10" value="5" class="w-full" />
+      </div>
+
+      <!-- Feature axes selectors -->
+      <div class="space-y-3">
+        <label class="text-xs font-semibold uppercase tracking-wider text-slate-400">3D Coordinate Axes</label>
+        
+        <div class="space-y-1">
+          <span class="text-xs text-slate-400">X Axis</span>
+          <select id="featX" class="saas-select w-full text-xs">
+            <option value="Annual Income (k$)" selected>Annual Income</option>
+            <option value="Spending Score (1-100)">Spending Score (1-100)</option>
+            <option value="Age">Age</option>
+          </select>
+        </div>
+
+        <div class="space-y-1">
+          <span class="text-xs text-slate-400">Y Axis</span>
+          <select id="featY" class="saas-select w-full text-xs">
+            <option value="Spending Score (1-100)" selected>Spending Score (1-100)</option>
+            <option value="Annual Income (k$)">Annual Income</option>
+            <option value="Age">Age</option>
+          </select>
+        </div>
+
+        <div class="space-y-1">
+          <span class="text-xs text-slate-400">Z Axis (Depth / Height)</span>
+          <select id="featZ" class="saas-select w-full text-xs">
+            <option value="Age" selected>Age (Reveals 3D separation!)</option>
+            <option value="Annual Income (k$)">Annual Income</option>
+            <option value="Spending Score (1-100)">Spending Score (1-100)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Toggles -->
+      <div class="space-y-3 pt-2 border-t border-slate-800">
+        <div class="flex items-center justify-between">
+          <span class="text-xs text-slate-300">Scale Features (StandardScaler)</span>
+          <input id="toggleScale" type="checkbox" class="w-4 h-4 rounded text-indigo-600 bg-slate-800 border-slate-700 focus:ring-0 cursor-pointer" />
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-xs text-slate-300">Show 3D Centroids</span>
+          <input id="toggleCentroids" type="checkbox" checked class="w-4 h-4 rounded text-indigo-600 bg-slate-800 border-slate-700 focus:ring-0 cursor-pointer" />
+        </div>
+      </div>
+
+      <!-- Preset Camera Angles -->
+      <div class="space-y-2 pt-2 border-t border-slate-800">
+        <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Camera Perspectives</span>
+        <div class="grid grid-cols-2 gap-2 text-xs">
+          <button id="camDefault" class="badge-btn px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-center font-medium">
+            3D Isometric
+          </button>
+          <button id="camTop" class="badge-btn px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-center font-medium" title="Flat 2D Income vs Spending view">
+            2D Flat View
+          </button>
+          <button id="camSide" class="badge-btn px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-center font-medium">
+            Age vs Spending
+          </button>
+          <button id="camFront" class="badge-btn px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-center font-medium">
+            Income vs Age
+          </button>
+        </div>
+        <p class="text-[11px] text-slate-500 italic mt-1 leading-normal">
+          Tip: Click "2D Flat View" to see why points overlap on a flat screen, then drag with your mouse to rotate and see them separate in 3D!
+        </p>
+      </div>
+
+      <!-- Live metrics -->
+      <div class="mt-auto pt-4 border-t border-slate-800 space-y-2 text-xs">
+        <div class="flex justify-between text-slate-400">
+          <span>Inertia (WCSS):</span>
+          <span id="metricInertia" class="mono text-slate-200 font-medium">--</span>
+        </div>
+        <div class="flex justify-between text-slate-400">
+          <span>Silhouette Score:</span>
+          <span id="metricSil" class="mono text-emerald-400 font-medium">--</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main 3D Canvas Area -->
+    <main class="flex-1 flex flex-col relative bg-[#090D16]">
+      
+      <!-- Top banner hint -->
+      <div class="p-3 bg-slate-900/60 border-b border-slate-800/80 flex items-center justify-between text-xs px-6">
+        <div class="flex items-center space-x-2 text-slate-300">
+          <span class="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span>Click & drag to rotate in 3D. Scroll to zoom. Double click to reset view.</span>
+        </div>
+        <div id="statusBadge" class="text-xs text-indigo-400 mono">Loading dataset...</div>
+      </div>
+
+      <!-- Plotly 3D Container -->
+      <div id="plot3d" class="flex-1 w-full h-[65vh] lg:h-auto min-h-[500px]"></div>
+
+      <!-- Bottom Cluster Breakdown Drawer -->
+      <div class="border-t border-slate-800 bg-slate-900/80 backdrop-blur p-4">
+        <div class="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2.5 flex items-center justify-between">
+          <span>Cluster Distribution & Characteristics in 3D</span>
+          <span class="text-slate-500 font-normal normal-case">Click on any cluster to highlight / isolate</span>
+        </div>
+        <div id="clusterCards" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3"></div>
+      </div>
+
+    </main>
+  </div>
+
+  <script>
+    /* Colorblind-friendly categorical palette (Okabe-Ito) */
+    const PALETTE = [
+      { hex: '#0077BB', rgb: '0, 119, 187', name: 'Blue' },
+      { hex: '#EE7733', rgb: '238, 119, 51', name: 'Orange' },
+      { hex: '#009988', rgb: '0, 153, 136', name: 'Teal' },
+      { hex: '#CC3311', rgb: '204, 51, 17', name: 'Red' },
+      { hex: '#AA3377', rgb: '170, 51, 119', name: 'Purple' },
+      { hex: '#33BBEE', rgb: '51, 187, 238', name: 'Cyan' },
+      { hex: '#EE3377', rgb: '238, 51, 119', name: 'Pink' },
+      { hex: '#BBBBBB', rgb: '187, 187, 187', name: 'Grey' },
+      { hex: '#332288', rgb: '51, 34, 136', name: 'Indigo' },
+      { hex: '#117733', rgb: '17, 119, 51', name: 'Forest' }
+    ];
+
+    let currentData = null;
+    let selectedCluster = null;
+
+    const kRange = document.getElementById('kRange');
+    const kDisplay = document.getElementById('kDisplay');
+    const featX = document.getElementById('featX');
+    const featY = document.getElementById('featY');
+    const featZ = document.getElementById('featZ');
+    const toggleScale = document.getElementById('toggleScale');
+    const toggleCentroids = document.getElementById('toggleCentroids');
+    const statusBadge = document.getElementById('statusBadge');
+    const metricInertia = document.getElementById('metricInertia');
+    const metricSil = document.getElementById('metricSil');
+    const clusterCards = document.getElementById('clusterCards');
+
+    // Update UI & fetch
+    kRange.addEventListener('input', (e) => {
+      kDisplay.innerText = e.target.value;
+    });
+    kRange.addEventListener('change', fetchDataAndRender);
+    featX.addEventListener('change', fetchDataAndRender);
+    featY.addEventListener('change', fetchDataAndRender);
+    featZ.addEventListener('change', fetchDataAndRender);
+    toggleScale.addEventListener('change', fetchDataAndRender);
+    toggleCentroids.addEventListener('change', () => render3DPlot(currentData));
+
+    async function fetchDataAndRender() {
+      statusBadge.innerText = 'Clustering...';
+      const x = featX.value;
+      const y = featY.value;
+      const z = featZ.value;
+      const k = parseInt(kRange.value, 10);
+      const scale = toggleScale.checked;
+
+      // Unique list of features
+      const addFeats = [];
+      if (![x, y].includes(z)) addFeats.push(z);
+
+      try {
+        const res = await fetch('/api/cluster', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            k: k,
+            feature_x: x,
+            feature_y: y,
+            additional_features: addFeats,
+            scale_features: scale,
+            random_state: 42
+          })
+        });
+
+        if (!res.ok) throw new Error('Failed to run cluster');
+        const data = await res.json();
+        currentData = data;
+        statusBadge.innerText = `Rendered ${k} clusters (${data.points.length} customers)`;
+        metricInertia.innerText = Math.round(data.inertia).toLocaleString();
+        metricSil.innerText = data.silhouette_score.toFixed(4);
+
+        render3DPlot(data);
+        renderClusterCards(data);
+      } catch (err) {
+        console.error(err);
+        statusBadge.innerText = 'Error connecting to backend API';
+      }
+    }
+
+    function render3DPlot(data) {
+      if (!data) return;
+      const xCol = featX.value;
+      const yCol = featY.value;
+      const zCol = featZ.value;
+      const showCentroids = toggleCentroids.checked;
+
+      const traces = [];
+
+      // For each cluster, make a 3D scatter trace
+      for (let c = 0; c < data.k; c++) {
+        const clusterPts = data.points.filter(pt => pt.cluster === c);
+        const colorObj = PALETTE[c % PALETTE.length];
+        const isDimmed = selectedCluster !== null && selectedCluster !== c;
+
+        const xVals = clusterPts.map(pt => pt[xCol] !== undefined ? pt[xCol] : pt.x);
+        const yVals = clusterPts.map(pt => pt[yCol] !== undefined ? pt[yCol] : pt.y);
+        const zVals = clusterPts.map(pt => pt[zCol] !== undefined ? pt[zCol] : (pt.z !== undefined ? pt.z : pt.Age));
+
+        const hoverTexts = clusterPts.map(pt => 
+          `<b>Customer #${pt.id}</b> (${pt.Gender || 'N/A'})<br>` +
+          `Cluster: <b>C${c}</b><br>` +
+          `${xCol}: <b>${pt[xCol]}</b><br>` +
+          `${yCol}: <b>${pt[yCol]}</b><br>` +
+          `${zCol}: <b>${pt[zCol]}</b>`
+        );
+
+        traces.push({
+          x: xVals,
+          y: yVals,
+          z: zVals,
+          text: hoverTexts,
+          hoverinfo: 'text',
+          mode: 'markers',
+          name: `Cluster ${c}`,
+          type: 'scatter3d',
+          marker: {
+            size: isDimmed ? 3 : 5.5,
+            color: colorObj.hex,
+            opacity: isDimmed ? 0.15 : 0.85,
+            line: {
+              color: '#FFFFFF',
+              width: 0.5
+            }
+          }
+        });
+      }
+
+      // Add Centroids Trace
+      if (showCentroids && data.centroids) {
+        const cX = [];
+        const cY = [];
+        const cZ = [];
+        const cColors = [];
+        const cTexts = [];
+
+        data.centroids.forEach(c => {
+          cX.push(c.x);
+          cY.push(c.y);
+          cZ.push(c.z !== undefined ? c.z : 0);
+          cColors.push(PALETTE[c.cluster % PALETTE.length].hex);
+          cTexts.push(
+            `<b>CENTROID C${c.cluster}</b><br>` +
+            `${xCol}: ${c.x.toFixed(1)}<br>` +
+            `${yCol}: ${c.y.toFixed(1)}<br>` +
+            `${zCol}: ${c.z !== undefined ? c.z.toFixed(1) : 'N/A'}`
+          );
+        });
+
+        traces.push({
+          x: cX,
+          y: cY,
+          z: cZ,
+          text: cTexts,
+          hoverinfo: 'text',
+          mode: 'markers',
+          name: 'Centroids',
+          type: 'scatter3d',
+          marker: {
+            size: 11,
+            symbol: 'diamond',
+            color: cColors,
+            opacity: 1.0,
+            line: {
+              color: '#FFFFFF',
+              width: 2
+            }
+          }
+        });
+      }
+
+      const layout = {
+        paper_bgcolor: '#090D16',
+        plot_bgcolor: '#090D16',
+        margin: { l: 0, r: 0, b: 0, t: 0 },
+        showlegend: true,
+        legend: {
+          x: 0,
+          y: 1,
+          font: { color: '#94A3B8', size: 11 },
+          bgcolor: 'rgba(15, 23, 42, 0.7)'
+        },
+        scene: {
+          xaxis: {
+            title: { text: xCol, font: { color: '#CBD5E1', size: 11 } },
+            backgroundcolor: '#0D1527',
+            gridcolor: '#1E293B',
+            showbackground: true,
+            zerolinecolor: '#334155',
+            tickfont: { color: '#94A3B8', size: 10 }
+          },
+          yaxis: {
+            title: { text: yCol, font: { color: '#CBD5E1', size: 11 } },
+            backgroundcolor: '#0D1527',
+            gridcolor: '#1E293B',
+            showbackground: true,
+            zerolinecolor: '#334155',
+            tickfont: { color: '#94A3B8', size: 10 }
+          },
+          zaxis: {
+            title: { text: zCol, font: { color: '#CBD5E1', size: 11 } },
+            backgroundcolor: '#0D1527',
+            gridcolor: '#1E293B',
+            showbackground: true,
+            zerolinecolor: '#334155',
+            tickfont: { color: '#94A3B8', size: 10 }
+          },
+          camera: {
+            eye: { x: 1.6, y: 1.6, z: 1.2 }
+          }
+        }
+      };
+
+      const config = {
+        responsive: true,
+        displaylogo: false,
+        modeBarButtonsToRemove: ['resetCameraDefault3d']
+      };
+
+      Plotly.react('plot3d', traces, layout, config);
+    }
+
+    function renderClusterCards(data) {
+      if (!data || !data.cluster_summaries) return;
+      clusterCards.innerHTML = '';
+
+      data.cluster_summaries.forEach(s => {
+        const color = PALETTE[s.cluster % PALETTE.length];
+        const isSelected = selectedCluster === s.cluster;
+
+        const card = document.createElement('div');
+        card.className = `p-3 rounded-xl border cursor-pointer transition-all ${
+          isSelected 
+            ? 'bg-slate-800 border-indigo-500 shadow-md ring-2 ring-indigo-500/30' 
+            : 'bg-slate-900/60 border-slate-800 hover:border-slate-700'
+        }`;
+        card.onclick = () => {
+          selectedCluster = selectedCluster === s.cluster ? null : s.cluster;
+          render3DPlot(data);
+          renderClusterCards(data);
+        };
+
+        card.innerHTML = `
+          <div class="flex items-center space-x-2 mb-1.5">
+            <span class="w-2.5 h-2.5 rounded-full" style="background-color: ${color.hex}"></span>
+            <span class="text-xs font-semibold text-white">Cluster ${s.cluster}</span>
+            <span class="text-[10px] text-slate-400 font-mono ml-auto">${s.count} pts</span>
+          </div>
+          <div class="text-[11px] text-slate-300 font-medium truncate mb-2">${s.name}</div>
+          <div class="grid grid-cols-3 gap-1 text-[10px] text-slate-400 mono border-t border-slate-800/80 pt-1.5">
+            <div>Age: <span class="text-slate-200 font-semibold">${s.avg_age}</span></div>
+            <div>Inc: <span class="text-slate-200 font-semibold">${Number(s.avg_income * 1000).toLocaleString('en-US', {style:'currency', currency:'USD', maximumFractionDigits:0})}</span></div>
+            <div>Sc: <span class="text-slate-200 font-semibold">${s.avg_spending}</span></div>
+          </div>
+        `;
+
+        clusterCards.appendChild(card);
+      });
+    }
+
+    // Camera Presets
+    document.getElementById('camDefault').onclick = () => {
+      Plotly.relayout('plot3d', { 'scene.camera': { eye: { x: 1.6, y: 1.6, z: 1.2 } } });
+    };
+    // 2D Flat view: looking straight down the Z axis (Income vs Spending)
+    document.getElementById('camTop').onclick = () => {
+      Plotly.relayout('plot3d', { 'scene.camera': { eye: { x: 0.01, y: 0.01, z: 2.5 }, up: { x: 0, y: 1, z: 0 } } });
+    };
+    // Side view: Spending vs Age
+    document.getElementById('camSide').onclick = () => {
+      Plotly.relayout('plot3d', { 'scene.camera': { eye: { x: 2.5, y: 0.01, z: 0.01 }, up: { x: 0, y: 0, z: 1 } } });
+    };
+    // Front view: Income vs Age
+    document.getElementById('camFront').onclick = () => {
+      Plotly.relayout('plot3d', { 'scene.camera': { eye: { x: 0.01, y: 2.5, z: 0.01 }, up: { x: 0, y: 0, z: 1 } } });
+    };
+
+    // Initial load
+    fetchDataAndRender();
+  </script>
+</body>
+</html>
